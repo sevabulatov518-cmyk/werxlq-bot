@@ -19,7 +19,7 @@ def _defaults() -> dict:
         "sessions": {},     # "chat_id" -> состояние диалога
         "orders": {},       # "id" -> заявка
         "msgmap": {},       # "chat_id:message_id" -> заявка/собеседник
-        "counter": 1000,    # следующий номер заявки
+        "counter": 1,    # следующий номер заявки
     }
 
 
