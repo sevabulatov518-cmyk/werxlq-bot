@@ -1,0 +1,27 @@
+﻿[Unit]
+Description=Telegram bot @Ve1vetz_bot (sigma shop)
+Documentation=file:///opt/werxlq-bot/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=werxlq
+WorkingDirectory=/opt/werxlq-bot
+ExecStart=/usr/bin/python3 /opt/werxlq-bot/bot.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+# Минимальные привилегии: боту нужна запись только в data/
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/werxlq-bot/data
+
+[Install]
+WantedBy=multi-user.target
