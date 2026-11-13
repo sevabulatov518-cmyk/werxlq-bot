@@ -1,4 +1,4 @@
-﻿"""Хранилище состояния в JSON-файле (атомарная запись, без внешних БД)."""
+"""Хранилище состояния в JSON-файле (атомарная запись, без внешних БД)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _defaults() -> dict:
         "sessions": {},     # "chat_id" -> состояние диалога
         "orders": {},       # "id" -> заявка
         "msgmap": {},       # "chat_id:message_id" -> заявка/собеседник
-        "counter": 1,    # следующий номер заявки
+        "counter": 1,       # следующий номер заявки
     }
 
 
@@ -34,7 +34,7 @@ class Store:
         if not self.path.exists():
             return
         try:
-            loaded = json.loads(self.path.read_text(encoding="utf-8"))
+            loaded = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
             backup = self.path.with_suffix(self.path.suffix + ".corrupt")
             log.error("Не удалось прочитать %s (%s), сохраняю копию в %s", self.path, exc, backup)

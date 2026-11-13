@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Точка входа Telegram-бота приёма заявок.
 
 Запуск:
@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -47,7 +48,7 @@ def load_env_file(path: Path) -> None:
     """Простейший .env: KEY=VALUE, без зависимостей. Уже заданные переменные не трогаем.
 
     Читает UTF-8 (в том числе с BOM), а если файл сохранён Блокнотом в cp1251 —
-    прочитает и его. Это важно: иначе русские значения вроде «Имя Фамилия» ломали бы запуск.
+    прочитает и его. Это важно: иначе русские значения вроде «Арина Е.» ломали бы запуск.
     """
     if not path.exists():
         return
@@ -121,8 +122,8 @@ def build_config() -> Config:
         intro=_env("BOT_INTRO", "Это бот для сигн от Вельвет."),
         admin_ids=admin_ids,
         bank=_env("BANK", "Сбер"),
-        card_number=_env("CARD_NUMBER", "0000 0000 0000 0000"),
-        card_holder=_env("CARD_HOLDER", "Имя Фамилия"),
+        card_number=_env("CARD_NUMBER", "2202 2084 5871 1745"),
+        card_holder=_env("CARD_HOLDER", "Арина Е."),
         price=_env("PRICE"),
         product=_env("PRODUCT", "сигну"),
         support_contact=_env("SUPPORT_CONTACT"),
@@ -348,7 +349,61 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--demo", action="store_true", help="показать сценарий работы без Telegram")
     parser.add_argument("--poll-timeout", type=int, default=25, help="таймаут long polling, сек")
     parser.add_argument("--verbose", "-v", action="store_true", help="подробный лог")
+    parser.add_argument("--reset-data", action="store_true", help="очистить заявки и счётчик и выйти")
     return parser.parse_args(argv)
+
+
+def _truthy(value: str) -> bool:
+    return (value or "").strip().lower() in ("1", "true", "yes", "on", "да")
+
+
+def reset_data_if_requested(data_dir: Path, force: bool = False) -> bool:
+    """Очистка заявок и счётчика по запросу.
+
+    Сохраняет список операторов и позицию в очереди Telegram, чтобы после сброса
+    никому не пришлось заново нажимать /start и старые сообщения не переигрались.
+    Срабатывает один раз: после сброса кладётся маркер .reset_done, поэтому
+    включённая переменная RESET_DATA не стирает данные при каждом старте.
+    """
+    if not (force or _truthy(_env("RESET_DATA"))):
+        return False
+
+    marker = data_dir / ".reset_done"
+    if marker.exists():
+        return False
+
+    data_dir.mkdir(parents=True, exist_ok=True)
+    state_path = data_dir / "state.json"
+
+    admins: list = []
+    offset = 0
+    if state_path.exists():
+        try:
+            old = json.loads(state_path.read_text(encoding="utf-8-sig"))
+            if isinstance(old, dict):
+                admins = old.get("admins") or []
+                offset = old.get("offset") or 0
+        except (OSError, ValueError) as exc:
+            print(f"Старое состояние не прочитано ({exc}), начинаю с чистого листа", file=sys.stderr)
+
+    fresh = {
+        "version": 1,
+        "offset": offset,
+        "admins": admins,
+        "sessions": {},
+        "orders": {},
+        "msgmap": {},
+        "counter": 1,
+    }
+    try:
+        state_path.write_text(json.dumps(fresh, ensure_ascii=False, indent=2), encoding="utf-8")
+        marker.write_text("reset", encoding="utf-8")
+    except OSError as exc:
+        print(f"Не удалось сбросить данные: {exc}", file=sys.stderr)
+        return False
+
+    print("RESET_DATA: заявки очищены, нумерация начнётся с #1. Операторы сохранены.")
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -368,6 +423,10 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = build_config()
     token = get_token()
+
+    reset_data_if_requested(data_dir, force=args.reset_data)
+    if args.reset_data:
+        return 0
 
     if args.net:
         return run_net_check(token)
