@@ -42,6 +42,9 @@ BOT_COMMANDS = [
 
 log = logging.getLogger("bot")
 
+# Видно в логах при старте — помогает понять, какой код реально крутится на сервере.
+BUILD = "2026-11-13 · BOT_INFO + RESET_DATA"
+
 
 # ------------------------------------------------------------------ окружение
 def load_env_file(path: Path) -> None:
@@ -296,6 +299,7 @@ def run_net_check(token: str) -> int:
 # ------------------------------------------------------------------ long poll
 def run_polling(api: TelegramAPI, logic: BotLogic, store: Store, cfg: Config, poll_timeout: int) -> int:
     offset = int(store.data.get("offset") or 0)
+    log.info("Версия кода: %s", BUILD)
     log.info("Бот запущен. Операторы: %s", operator_list(cfg))
     log.info("Реквизиты: %s · %s · %s", cfg.card_number, cfg.bank, cfg.card_holder)
     if not store.data.get("admins") and not cfg.admin_ids:
