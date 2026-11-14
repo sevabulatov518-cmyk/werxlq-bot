@@ -1,8 +1,9 @@
-﻿"""Все тексты бота в одном месте — правь под себя, не трогая логику."""
+"""Все тексты бота в одном месте — правь под себя, не трогая логику."""
 
 from __future__ import annotations
 
 import html
+import os
 
 
 def esc(value) -> str:
@@ -64,7 +65,13 @@ def info_text(cfg) -> str:
         lines.append(f"👨‍💻 Разработчик: @{esc(cfg.bot_developer)}")
     if cfg.bot_for:
         lines.append(f"🎯 Для: {esc(cfg.bot_for)}")
-    if cfg.product:
+
+    # Своя строка вместо «🛒 Купить: сигну» — задаётся переменной BOT_INFO.
+    # Переводы строк пишутся как \n, потому что поле в панели однострочное.
+    custom = (os.environ.get("BOT_INFO") or "").strip().replace("\\n", "\n")
+    if custom:
+        lines.append(custom)
+    elif cfg.product:
         lines.append(f"🛒 Купить: {esc(cfg.product)}")
     return "\n".join(lines)
 
@@ -184,6 +191,7 @@ def status_text(cfg, order: dict, when: str) -> str:
         "awaiting_product": "⏳ оплата подтверждена, оператор готовит материал",
         "accepted": "✅ выполнена, материал отправлен",
         "rejected": "❌ отклонена",
+        "cancelled": "🚫 отменена",
     }.get(order.get("status", "pending"), order.get("status", ""))
     return (
         f"📄 <b>Заявка #{esc(order.get('id'))}</b>\n"
@@ -222,6 +230,31 @@ def buyer_rejected(cfg, order_id: str) -> str:
         f"❌ <b>Заявка #{esc(order_id)} отклонена</b>\n\n"
         "Оплату не удалось подтвердить. Если считаешь, что это ошибка — "
         "оформи заявку заново с чеком, оператор проверит ещё раз."
+    )
+
+
+def buyer_cancelled(cfg, order_id: str) -> str:
+    return (
+        f"❌ <b>Заявка #{esc(order_id)} отменена</b>\n\n"
+        "Если передумаешь — оформи новую, реквизиты те же."
+    )
+
+
+def cancel_too_late(cfg, order_id: str) -> str:
+    return (
+        f"⏳ Заявку #{esc(order_id)} уже подтвердил оператор — отменить её нельзя.\n\n"
+        "Он готовит материал. Если что-то не так — ответь реплаем на его сообщение."
+    )
+
+
+def already_closed(cfg, order_id: str) -> str:
+    return f"Заявка #{esc(order_id)} уже закрыта, отменять нечего."
+
+
+def admin_buyer_cancelled(order_id: str) -> str:
+    return (
+        f"🚫 <b>Покупатель отменил заявку #{esc(order_id)}</b>\n\n"
+        "Обрабатывать её больше не нужно — карточка закрыта."
     )
 
 
@@ -265,6 +298,7 @@ def status_line(status: str, when: str) -> str:
     return {
         "accepted": f"✅ Выполнено: {esc(when)}",
         "rejected": f"❌ Отклонено: {esc(when)}",
+        "cancelled": f"🚫 Отменено покупателем: {esc(when)}",
         "awaiting_product": f"⏳ Ожидает фото с материалом: {esc(when)}",
         "pending": f"🕓 Ожидает проверки: {esc(when)}",
     }.get(status, status)
@@ -401,7 +435,8 @@ def stats_text(cfg, stats: dict, admins: list) -> str:
         f"🕓 В ожидании: {stats['pending']}\n"
         f"⏳ Ждут фото: {stats.get('awaiting_product', 0)}\n"
         f"✅ Выполнено: {stats['accepted']}\n"
-        f"❌ Отклонено: {stats['rejected']}\n\n"
+        f"❌ Отклонено: {stats['rejected']}\n"
+        f"🚫 Отменено покупателем: {stats.get('cancelled', 0)}\n\n"
         f"Операторы: {len(admins)}"
     )
 

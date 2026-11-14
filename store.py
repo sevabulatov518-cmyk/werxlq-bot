@@ -79,7 +79,8 @@ class Store:
         return str(number)
 
     def stats(self) -> dict:
-        result = {"total": 0, "pending": 0, "awaiting_product": 0, "accepted": 0, "rejected": 0}
+        result = {"total": 0, "pending": 0, "awaiting_product": 0,
+                  "accepted": 0, "rejected": 0, "cancelled": 0}
         for order in self.orders.values():
             if not isinstance(order, dict):
                 continue

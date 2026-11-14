@@ -1,4 +1,4 @@
-﻿"""Вся логика бота: заявки, выдача материала, переписка с покупателем.
+"""Вся логика бота: заявки, выдача материала, переписка с покупателем.
 
 Класс BotLogic ничего не знает про сеть — он получает объект API с методом call(),
 поэтому его можно гонять офлайн в тестах и в демо-режиме.
@@ -46,8 +46,8 @@ class Config:
     intro: str = "Это бот для сигн от Вельвет."
     admin_ids: list[int] = field(default_factory=list)
     bank: str = "Сбер"
-    card_number: str = "0000 0000 0000 0000"
-    card_holder: str = "Имя Фамилия"
+    card_number: str = "2202 2084 5871 1745"
+    card_holder: str = "Арина Е."
     price: str = ""
     product: str = "сигну"
     support_contact: str = ""
@@ -232,9 +232,12 @@ class BotLogic:
 
     # ------------------------------------------------------------- покупатель
     def _on_buyer_command(self, chat_id: int, user: dict, command: str) -> None:
-        if command in ("start", "help"):
+        if command == "start":
             self._clear_session(chat_id)
             self._send(chat_id, T.welcome(self.cfg, user.get("first_name")), T.welcome_keyboard())
+            return
+        if command == "help":
+            self._send(chat_id, T.help_text(self.cfg))
             return
         if command == "info":
             self._send(chat_id, T.info_text(self.cfg), T.back_keyboard())
@@ -243,13 +246,48 @@ class BotLogic:
             self._start_order(chat_id, user)
             return
         if command == "cancel":
-            self._clear_session(chat_id)
-            self._send(chat_id, T.cancelled())
+            self._cancel_buyer(chat_id, user)
             return
         if command == "status":
             self._send_status(chat_id, user)
             return
         self._send(chat_id, T.welcome(self.cfg, user.get("first_name")), T.welcome_keyboard())
+
+    def _cancel_buyer(self, chat_id: int, user: dict) -> None:
+        """Отмена покупателем: черновик сбрасываем, отправленную заявку — закрываем."""
+        session = self._session(chat_id)
+        step = session.get("step")
+        order_id = session.get("order_id")
+        order = self.store.orders.get(order_id) if order_id else None
+
+        if step == "sent" and isinstance(order, dict):
+            status = order.get("status")
+
+            if status == "pending":
+                # Заявка ещё не в работе — отменяем по-настоящему и сообщаем операторам.
+                self._clear_session(chat_id)
+                self._set_status(order, "cancelled", final=True)
+                self._send(chat_id, T.buyer_cancelled(self.cfg, order["id"]), T.back_keyboard())
+                self._notify_cancelled(order)
+                self._save()
+                return
+
+            if status == "awaiting_product":
+                self._send(chat_id, T.cancel_too_late(self.cfg, order["id"]))
+                return
+
+            self._clear_session(chat_id)
+            self._send(chat_id, T.already_closed(self.cfg, order["id"]), T.back_keyboard())
+            return
+
+        # Черновик (ник/чек) — просто сбрасываем, оператор о нём не знает.
+        self._clear_session(chat_id)
+        self._send(chat_id, T.cancelled())
+        self._save()
+
+    def _notify_cancelled(self, order: dict) -> None:
+        for admin_chat in self._admin_chat_ids():
+            self._try_send(admin_chat, T.admin_buyer_cancelled(order["id"]))
 
     def _on_buyer_message(self, msg: dict, text: str) -> None:
         chat_id = msg["chat"]["id"]
@@ -511,6 +549,9 @@ class BotLogic:
             if order.get("status") == "accepted":
                 self._send(chat_id, T.already_done(order_id))
                 return
+            if order.get("status") in ("cancelled", "rejected"):
+                self._send(chat_id, T.already_closed(self.cfg, order_id))
+                return
             self._set_status(order, "awaiting_product")
             self._set_session(chat_id, step="product", order_id=order_id)
             self._send(
@@ -591,6 +632,11 @@ class BotLogic:
         if order.get("status") == "accepted":
             self._clear_session(chat_id)
             self._send(chat_id, T.already_done(order_id))
+            return
+        if order.get("status") in ("cancelled", "rejected"):
+            # Заявку отменили, пока оператор собирался прислать фото — товар не выдаём.
+            self._clear_session(chat_id)
+            self._send(chat_id, T.already_closed(self.cfg, order_id))
             return
 
         proof = self._extract_proof(msg)

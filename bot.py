@@ -33,17 +33,15 @@ from store import Store  # noqa: E402
 TOKEN_RE = re.compile(r"^\d{5,15}:[A-Za-z0-9_-]{20,}$")
 ALLOWED_UPDATES = ["message", "callback_query"]
 BOT_COMMANDS = [
-    {"command": "start", "description": "Начать / показать реквизиты"},
-    {"command": "pay", "description": "Я оплатил — отправить заявку"},
-    {"command": "status", "description": "Статус последней заявки"},
-    {"command": "cancel", "description": "Отменить текущую заявку"},
-    {"command": "help", "description": "Как это работает"},
+    {"command": "start", "description": "Начать"},
+    {"command": "pay", "description": "Купить сигну"},
+    {"command": "status", "description": "Статус заявки"},
 ]
 
 log = logging.getLogger("bot")
 
 # Видно в логах при старте — помогает понять, какой код реально крутится на сервере.
-BUILD = "2026-11-13 · BOT_INFO + RESET_DATA"
+BUILD = "2026-11-14 · отмена заявок, /help, BOT_INFO, RESET_DATA"
 
 
 # ------------------------------------------------------------------ окружение
