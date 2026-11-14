@@ -425,7 +425,28 @@ def orders_list(cfg, orders: list) -> str:
         who = f"@{esc(username)}" if username else f"id {order.get('user_id')}"
         state = "ждёт фото" if order.get("status") == "awaiting_product" else "ждёт проверки"
         lines.append(f"#{esc(order.get('id'))} · <b>{esc(order.get('nick'))}</b> · {who} · {state}")
+    lines.append("")
+    lines.append("Подтверждай и отклоняй кнопками ниже:")
     return "\n".join(lines)
+
+
+def pending_keyboard(orders: list) -> list:
+    """Кнопки под списком заявок: по паре на каждую заявку."""
+    rows = []
+    for order in orders[:20]:
+        order_id = order.get("id", "")
+        if not order_id:
+            continue
+        rows.append([
+            btn(f"✅ #{order_id}", f"acc:{order_id}"),
+            btn(f"❌ #{order_id}", f"rej:{order_id}"),
+            btn("✍️", f"chat:{order_id}"),
+        ])
+    return rows
+
+
+def admin_welcome_keyboard() -> list:
+    return [[btn("📋 Заявки в ожидании", "orders")]]
 
 
 def stats_text(cfg, stats: dict, admins: list) -> str:

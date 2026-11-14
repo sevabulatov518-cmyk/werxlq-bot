@@ -743,7 +743,8 @@ class BotLogic:
             if isinstance(order, dict) and order.get("status") in ("pending", "awaiting_product")
         ]
         pending.sort(key=lambda item: item.get("created_at", 0))
-        self._send(chat_id, T.orders_list(self.cfg, pending))
+        keyboard = T.pending_keyboard(pending) if pending else None
+        self._send(chat_id, T.orders_list(self.cfg, pending), keyboard)
 
     def _on_admin_command(self, chat_id: int, msg: dict, command: str, argument: str) -> None:
         if command == "start":
@@ -752,6 +753,7 @@ class BotLogic:
             self._send(
                 chat_id,
                 T.admin_welcome(self.cfg, (msg.get("from") or {}).get("first_name")),
+                T.admin_welcome_keyboard(),
             )
             return
         if command == "id":
